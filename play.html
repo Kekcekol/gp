@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Призраки Везенбергского квартала</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   
   <!-- Подключение CSS -->
@@ -56,7 +56,7 @@
   <div id="installModal">
     <div class="modal-content">
       <h2 class="modal-title">Инструкция для iPhone</h2>
-      <p class="modal-text">Для установки приложения на главный экран:</p>
+      <p class="modal-text">Для установка приложения на главный экран:</p>
       
       <ol class="modal-text">
         <li>Нажмите кнопку "Поделиться" внизу браузера</li>
@@ -94,8 +94,9 @@
     // Глобальные переменные для функций меню
     let closeContextMenu, openContextMenu;
     
-    // Флаг для отслеживания пользовательского взаимодействия
-    let userInteracted = false;
+    // Глобальные переменные для управления аудио
+    let audioContext = null;
+    let isAudioPausedByApp = false;
     
     // Основной код JavaScript остается здесь, но будет реорганизован
     // URL игры и регистрация Service Worker
@@ -121,92 +122,6 @@
     // Функция проверки iOS устройства
     function isIOS() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
-    
-    // Функция проверки Android устройства
-    function isAndroid() {
-      return /Android/.test(navigator.userAgent);
-    }
-    
-    // Управление аудио
-    let audioContexts = [];
-    
-    // Функция возобновления аудио контекста
-    function resumeAudioContext() {
-      if (context && context.state !== "running") {
-        context.resume().then(() => {
-          console.log("AudioContext успешно возобновлен");
-        }).catch((error) => {
-          console.error("Ошибка при возобновлении AudioContext:", error);
-        });
-      }
-    }
-    
-    // Обработчик первого взаимодействия пользователя
-    function handleFirstUserInteraction() {
-      if (!userInteracted) {
-        userInteracted = true;
-        resumeAudioContext();
-        
-        // Удаляем обработчики после первого взаимодействия
-        document.removeEventListener('click', handleFirstUserInteraction);
-        document.removeEventListener('touchstart', handleFirstUserInteraction);
-        document.removeEventListener('keydown', handleFirstUserInteraction);
-      }
-    }
-    
-    function pauseAllAudio() {
-      // Приостанавливаем все аудио контексты
-      audioContexts.forEach(ctx => {
-        if (ctx.state === 'running') {
-          ctx.suspend().catch(e => console.error('Error suspending audio context:', e));
-        }
-      });
-      
-      // Также приостанавливаем HTML5 аудио элементы
-      document.querySelectorAll('audio, video').forEach(media => {
-        if (!media.paused) {
-          media.pause();
-        }
-      });
-    }
-    
-    function resumeAllAudio() {
-      // Возобновляем все аудио контексты только если было пользовательское взаимодействие
-      if (userInteracted) {
-        audioContexts.forEach(ctx => {
-          if (ctx.state === 'suspended') {
-            ctx.resume().catch(e => console.error('Error resuming audio context:', e));
-          }
-        });
-      }
-    }
-    
-    // Переопределяем функцию queue_depth для Ren'Py
-    function patchRenpyAudio() {
-      if (typeof renpyAudio !== 'undefined' && renpyAudio.queue_depth) {
-        // Сохраняем оригинальную функцию
-        const originalQueueDepth = renpyAudio.queue_depth;
-        
-        // Переопределяем функцию без попытки автоматического возобновления
-        renpyAudio.queue_depth = (channel) => {
-          let rv = 0;
-          let c = get_channel(channel);
-          
-          // Убрали попытку автоматического возобновления контекста
-          // Теперь контекст будет возобновляться только через обработчики жестов
-          
-          if (c.playing !== null) {
-            rv += 1;
-          }
-          
-          if (c.queued !== null) {
-            rv += 1;
-          }
-          
-          return rv;
-        };
-      }
     }
     
     // Показ сообщения о беззвучном режиме на iOS
@@ -259,6 +174,128 @@
       }
     }
     
+    // Функции для управления аудио
+    function setupAudioManagement() {
+      // Получаем аудиоконтекст игры, если доступен
+      function getGameAudioContext() {
+        if (typeof Module !== 'undefined' && Module.SDL2 && Module.SDL2.audioContext) {
+          return Module.SDL2.audioContext;
+        }
+        return null;
+      }
+      
+      // Приостановка аудио
+      function pauseAudio() {
+        audioContext = getGameAudioContext();
+        if (audioContext && audioContext.state === 'running') {
+          audioContext.suspend().then(() => {
+            console.log('Аудио приостановлено');
+            isAudioPausedByApp = true;
+          }).catch(error => {
+            console.error('Ошибка при приостановке аудио:', error);
+          });
+        }
+        
+        // Также приостанавливаем все HTML5 audio элементы
+        document.querySelectorAll('audio, video').forEach(media => {
+          if (!media.paused) {
+            media.pause();
+          }
+        });
+      }
+      
+      // Возобновление аудио
+      function resumeAudio() {
+        if (audioContext && audioContext.state === 'suspended' && isAudioPausedByApp) {
+          audioContext.resume().then(() => {
+            console.log('Аудио возобновлено');
+            isAudioPausedByApp = false;
+          }).catch(error => {
+            console.error('Ошибка при возобновлении аудио:', error);
+          });
+        }
+      }
+      
+      // Полная остановка аудио
+      function stopAudio() {
+        if (audioContext && audioContext.state !== 'closed') {
+          audioContext.close().then(() => {
+            console.log('Аудиоконтекст полностью закрыт');
+          }).catch(error => {
+            console.error('Ошибка при закрытии аудиоконтекста:', error);
+          });
+        }
+        
+        // Останавливаем все HTML5 audio элементы
+        document.querySelectorAll('audio, video').forEach(media => {
+          media.pause();
+          media.currentTime = 0;
+        });
+      }
+      
+      // Обработчики событий видимости страницы
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          // Страница скрыта (свернута или переключена вкладка)
+          pauseAudio();
+        } else {
+          // Страница снова видна
+          resumeAudio();
+        }
+      });
+      
+      // Обработчик события beforeunload (закрытие страницы)
+      window.addEventListener('beforeunload', () => {
+        stopAudio();
+      });
+      
+      // Обработчик события pagehide (для мобильных устройств)
+      window.addEventListener('pagehide', () => {
+        stopAudio();
+      });
+      
+      // Обработчик для iOS - при переходе в режим ожидания
+      document.addEventListener('webkitvisibilitychange', () => {
+        if (document.webkitHidden) {
+          pauseAudio();
+        } else {
+          resumeAudio();
+        }
+      });
+    }
+    
+    // Функция для предотвращения дублирования музыки
+    function preventAudioDuplication() {
+      // Проверяем, был ли уже инициализирован аудиоконтекст
+      if (typeof Module !== 'undefined' && Module.SDL2) {
+        // Если аудиоконтекст уже существует, закрываем его перед созданием нового
+        if (Module.SDL2.audioContext && Module.SDL2.audioContext.state !== 'closed') {
+          Module.SDL2.audioContext.close().catch(() => {});
+        }
+        
+        // Перехватываем создание нового аудиоконтекста
+        const originalConstructor = window.AudioContext || window.webkitAudioContext;
+        
+        if (originalConstructor) {
+          window.AudioContext = function() {
+            // Закрываем предыдущий контекст, если он есть
+            if (Module.SDL2.audioContext && Module.SDL2.audioContext.state !== 'closed') {
+              Module.SDL2.audioContext.close().catch(() => {});
+            }
+            
+            const context = new originalConstructor();
+            Module.SDL2.audioContext = context;
+            return context;
+          };
+          
+          window.AudioContext.prototype = originalConstructor.prototype;
+          if (window.webkitAudioContext) {
+            window.webkitAudioContext = window.AudioContext;
+          }
+        }
+      }
+    }
+    
     // Основные функции приложения
     function loadResources() {
       // Загрузка прелоада с отложенным стартом
@@ -286,10 +323,7 @@
       Promise.all([
         loadScript('renpy-pre.js'),
         loadScript('renpy.js')
-      ]).then(() => {
-        // После загрузки Ren'Py патчим аудио функции
-        setTimeout(patchRenpyAudio, 1000);
-      }).catch(error => {
+      ]).catch(error => {
         console.error('Ошибка загрузки скриптов:', error);
       });
     }
@@ -511,142 +545,10 @@
       const canvas = document.getElementById('canvas');
       if (!canvas) return;
       
-      // Установка правильных размеров body для iOS standalone
+      // Фикс для полноэкранного режима на iOS
       document.documentElement.style.height = '100%';
-      document.documentElement.style.width = '100%';
       document.body.style.height = '100%';
-      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.margin = '0';
-      document.body.style.padding = 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
-      
-      // Добавляем класс для CSS-фиксации
-      document.body.classList.add('ios-standalone');
-      
-      // Фикс для безопасных областей на iPhone X+
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-      }
-      
-      // Сохраняем оригинальные размеры canvas для восстановления
-      let originalWidth = canvas.width;
-      let originalHeight = canvas.height;
-      
-      // Улучшенный обработчик изменения ориентации
-      let orientationChangeTimeout;
-      function handleOrientationChange() {
-        clearTimeout(orientationChangeTimeout);
-        
-        // Сохраняем текущее состояние
-        const wasHidden = document.hidden;
-        
-        // Используем setTimeout для ожидания завершения анимации поворота
-        setTimeout(() => {
-          // Проверяем, что страница видима и не скрыта
-          if (document.hidden || wasHidden) return;
-          
-          // Корректно определяем размеры с учетом безопасных областей
-          const width = window.innerWidth;
-          const height = window.innerHeight;
-          
-          // Проверяем, что размеры изменились (избегаем ложных срабатываний)
-          if (Math.abs(canvas.width - width * window.devicePixelRatio) > 1 || 
-              Math.abs(canvas.height - height * window.devicePixelRatio) > 1) {
-            
-            // Устанавливаем правильные размеры canvas
-            canvas.width = width * window.devicePixelRatio;
-            canvas.height = height * window.devicePixelRatio;
-            
-            // Обновляем стили
-            canvas.style.width = `${width}px`;
-            canvas.style.height = `${height}px`;
-            
-            // Сохраняем новые оригинальные размеры
-            originalWidth = canvas.width;
-            originalHeight = canvas.height;
-            
-            // Вызываем обработчик изменения размера в Ren'Py
-            if (typeof Module !== 'undefined' && Module.onResize) {
-              Module.onResize();
-            }
-            
-            // Принудительно перерисовываем сцену
-            if (typeof Module !== 'undefined' && Module._repaint) {
-              Module._repaint();
-            }
-            
-            // Принудительно фокусируемся на canvas
-            canvas.focus();
-          }
-        }, 200); // Увеличенная задержка для iOS
-        
-        // Дополнительная проверка через большее время
-        orientationChangeTimeout = setTimeout(() => {
-          // Проверяем, что страница видима
-          if (!document.hidden) {
-            // Дополнительная проверка и коррекция размеров
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            
-            if (Math.abs(canvas.width - width * window.devicePixelRatio) > 5 || 
-                Math.abs(canvas.height - height * window.devicePixelRatio) > 5) {
-              
-              canvas.width = width * window.devicePixelRatio;
-              canvas.height = height * window.devicePixelRatio;
-              canvas.style.width = `${width}px`;
-              canvas.style.height = `${height}px`;
-              
-              if (typeof Module !== 'undefined' && Module.onResize) {
-                Module.onResize();
-              }
-              
-              if (typeof Module !== 'undefined' && Module._repaint) {
-                Module._repaint();
-              }
-            }
-          }
-        }, 500);
-      }
-      
-      // Более надежные обработчики для iOS
-      window.addEventListener('orientationchange', handleOrientationChange);
-      window.addEventListener('resize', handleOrientationChange);
-      
-      // Улучшенные обработчики для восстановления после паузы
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-          // Даем время системе обновить размеры
-          setTimeout(handleOrientationChange, 150);
-        }
-      });
-      
-      // Обработчик для pageshow с повышенной надежностью
-      window.addEventListener('pageshow', (event) => {
-        if (event.persisted || document.hidden === false) {
-          setTimeout(handleOrientationChange, 200);
-          
-          // Принудительное восстановление состояния canvas
-          setTimeout(() => {
-            if (canvas && typeof Module !== 'undefined' && Module._repaint) {
-              Module._repaint();
-            }
-          }, 400);
-        }
-      });
-      
-      // Дополнительные обработчики для iOS
-      document.addEventListener('webkitvisibilitychange', () => {
-        if (!document.webkitHidden) {
-          setTimeout(handleOrientationChange, 150);
-        }
-      });
-      
-      // Обработчик для событий приложения (iOS)
-      document.addEventListener('resume', () => {
-        setTimeout(handleOrientationChange, 200);
-      }, false);
       
       // Фикс для touch-событий
       let lastTouchTime = 0;
@@ -662,14 +564,6 @@
         });
         e.target.dispatchEvent(clickEvent);
       }, { passive: true });
-      
-      // Принудительная инициализация размеров при старте
-      setTimeout(() => {
-        handleOrientationChange();
-        
-        // Дополнительная проверка через 1 секунду
-        setTimeout(handleOrientationChange, 1000);
-      }, 100);
     }
     
     // Автоматическое открытие меню на iOS при загрузке
@@ -685,38 +579,6 @@
       }
     }
     
-    // Обработчики для управления аудио
-    function setupAudioHandlers() {
-      // Добавляем обработчики для первого пользовательского взаимодействия
-      document.addEventListener('click', handleFirstUserInteraction);
-      document.addEventListener('touchstart', handleFirstUserInteraction);
-      document.addEventListener('keydown', handleFirstUserInteraction);
-      
-      // Обработчик изменения видимости страницы
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          pauseAllAudio();
-        } else if (userInteracted) {
-          resumeAllAudio();
-        }
-      });
-      
-      // Обработчик перед закрытием страницы
-      window.addEventListener('beforeunload', () => {
-        pauseAllAudio();
-      });
-      
-      // Обработчик для Android Chrome - приостанавливаем аудио при сворачивании
-      if (isAndroid()) {
-        document.addEventListener('pause', pauseAllAudio, false);
-        document.addEventListener('resume', () => {
-          if (userInteracted) {
-            resumeAllAudio();
-          }
-        }, false);
-      }
-    }
-    
     // Инициализация приложения
     function init() {
       loadResources();
@@ -725,8 +587,11 @@
       setupInstallPrompt();
       setupIOSFix();
       setupIOSBehavior();
-      setupAudioHandlers();
       autoOpenMenuOnIOS(); // Автоматическое открытие меню на iOS
+      
+      // Настройка управления аудио
+      setupAudioManagement();
+      preventAudioDuplication();
       
       // Показываем предупреждение о беззвучном режиме на iOS
       if (isIOS()) {

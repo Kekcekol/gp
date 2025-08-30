@@ -23,6 +23,6 @@
   "display": "standalone",
   "background_color": "black",
   "theme_color": "black",
-  "orientation": "landscape-primary",
+  "orientation": "landscape",
   "scope": "./"
 }
