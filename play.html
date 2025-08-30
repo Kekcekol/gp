@@ -511,10 +511,142 @@
       const canvas = document.getElementById('canvas');
       if (!canvas) return;
       
-      // Фикс для полноэкранного режима на iOS
+      // Установка правильных размеров body для iOS standalone
       document.documentElement.style.height = '100%';
+      document.documentElement.style.width = '100%';
       document.body.style.height = '100%';
+      document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.margin = '0';
+      document.body.style.padding = 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+      
+      // Добавляем класс для CSS-фиксации
+      document.body.classList.add('ios-standalone');
+      
+      // Фикс для безопасных областей на iPhone X+
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+      }
+      
+      // Сохраняем оригинальные размеры canvas для восстановления
+      let originalWidth = canvas.width;
+      let originalHeight = canvas.height;
+      
+      // Улучшенный обработчик изменения ориентации
+      let orientationChangeTimeout;
+      function handleOrientationChange() {
+        clearTimeout(orientationChangeTimeout);
+        
+        // Сохраняем текущее состояние
+        const wasHidden = document.hidden;
+        
+        // Используем setTimeout для ожидания завершения анимации поворота
+        setTimeout(() => {
+          // Проверяем, что страница видима и не скрыта
+          if (document.hidden || wasHidden) return;
+          
+          // Корректно определяем размеры с учетом безопасных областей
+          const width = window.innerWidth;
+          const height = window.innerHeight;
+          
+          // Проверяем, что размеры изменились (избегаем ложных срабатываний)
+          if (Math.abs(canvas.width - width * window.devicePixelRatio) > 1 || 
+              Math.abs(canvas.height - height * window.devicePixelRatio) > 1) {
+            
+            // Устанавливаем правильные размеры canvas
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            
+            // Обновляем стили
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            
+            // Сохраняем новые оригинальные размеры
+            originalWidth = canvas.width;
+            originalHeight = canvas.height;
+            
+            // Вызываем обработчик изменения размера в Ren'Py
+            if (typeof Module !== 'undefined' && Module.onResize) {
+              Module.onResize();
+            }
+            
+            // Принудительно перерисовываем сцену
+            if (typeof Module !== 'undefined' && Module._repaint) {
+              Module._repaint();
+            }
+            
+            // Принудительно фокусируемся на canvas
+            canvas.focus();
+          }
+        }, 200); // Увеличенная задержка для iOS
+        
+        // Дополнительная проверка через большее время
+        orientationChangeTimeout = setTimeout(() => {
+          // Проверяем, что страница видима
+          if (!document.hidden) {
+            // Дополнительная проверка и коррекция размеров
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            if (Math.abs(canvas.width - width * window.devicePixelRatio) > 5 || 
+                Math.abs(canvas.height - height * window.devicePixelRatio) > 5) {
+              
+              canvas.width = width * window.devicePixelRatio;
+              canvas.height = height * window.devicePixelRatio;
+              canvas.style.width = `${width}px`;
+              canvas.style.height = `${height}px`;
+              
+              if (typeof Module !== 'undefined' && Module.onResize) {
+                Module.onResize();
+              }
+              
+              if (typeof Module !== 'undefined' && Module._repaint) {
+                Module._repaint();
+              }
+            }
+          }
+        }, 500);
+      }
+      
+      // Более надежные обработчики для iOS
+      window.addEventListener('orientationchange', handleOrientationChange);
+      window.addEventListener('resize', handleOrientationChange);
+      
+      // Улучшенные обработчики для восстановления после паузы
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          // Даем время системе обновить размеры
+          setTimeout(handleOrientationChange, 150);
+        }
+      });
+      
+      // Обработчик для pageshow с повышенной надежностью
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted || document.hidden === false) {
+          setTimeout(handleOrientationChange, 200);
+          
+          // Принудительное восстановление состояния canvas
+          setTimeout(() => {
+            if (canvas && typeof Module !== 'undefined' && Module._repaint) {
+              Module._repaint();
+            }
+          }, 400);
+        }
+      });
+      
+      // Дополнительные обработчики для iOS
+      document.addEventListener('webkitvisibilitychange', () => {
+        if (!document.webkitHidden) {
+          setTimeout(handleOrientationChange, 150);
+        }
+      });
+      
+      // Обработчик для событий приложения (iOS)
+      document.addEventListener('resume', () => {
+        setTimeout(handleOrientationChange, 200);
+      }, false);
       
       // Фикс для touch-событий
       let lastTouchTime = 0;
@@ -531,70 +663,13 @@
         e.target.dispatchEvent(clickEvent);
       }, { passive: true });
       
-      // Обработчик изменения ориентации - улучшенная версия
-      let orientationChangeTimeout;
-      function handleOrientationChange() {
-        clearTimeout(orientationChangeTimeout);
+      // Принудительная инициализация размеров при старте
+      setTimeout(() => {
+        handleOrientationChange();
         
-        // Сначала принудительно устанавливаем правильные размеры
-        setTimeout(() => {
-          if (canvas) {
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-          }
-        }, 50);
-        
-        // Затем вызываем ресайз с задержкой
-        orientationChangeTimeout = setTimeout(() => {
-          if (typeof Module !== 'undefined' && Module.onResize) {
-            Module.onResize();
-          }
-          
-          // Принудительно восстанавливаем фокус и состояние
-          if (canvas) {
-            canvas.focus();
-          }
-          
-          // Пытаемся перерисовать сцену
-          if (typeof Module !== 'undefined' && Module._repaint) {
-            Module._repaint();
-          }
-        }, 300);
-      }
-      
-      // Обработчик изменения ориентации
-      window.addEventListener('orientationchange', handleOrientationChange);
-      
-      // Обработчик изменения размера окна
-      window.addEventListener('resize', handleOrientationChange);
-      
-      // Обработчики для восстановления после паузы
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-          // При возвращении на страницу восстанавливаем состояние
-          setTimeout(handleOrientationChange, 100);
-        }
-      });
-      
-      // Обработчик для страницы показа (после восстановления из фона)
-      window.addEventListener('pageshow', (event) => {
-        if (event.persisted) {
-          setTimeout(handleOrientationChange, 100);
-        }
-      });
-      
-      // Предотвращаем масштабирование жестами
-      document.addEventListener('touchstart', function(e) {
-        if (e.touches.length > 1) {
-          e.preventDefault();
-        }
-      }, { passive: false });
-      
-      document.addEventListener('gesturestart', function(e) {
-        e.preventDefault();
-      });
+        // Дополнительная проверка через 1 секунду
+        setTimeout(handleOrientationChange, 1000);
+      }, 100);
     }
     
     // Автоматическое открытие меню на iOS при загрузке

@@ -19,11 +19,10 @@
     {"src": "icons/icon-512x512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ],
   "lang": "ru-RU",
-  "start_url": "./play.html",
+  "start_url": "./play.html?homescreen=1",
   "display": "standalone",
   "background_color": "black",
   "theme_color": "black",
-  "launch_handler": {"route_to": "existing-client", "navigate_existing_client": "always"},
   "orientation": "landscape-primary",
-  "display_override": ["fullscreen", "minimal-ui"]
+  "scope": "./"
 }

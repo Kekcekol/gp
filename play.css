@@ -380,144 +380,120 @@ html, body {
   font-size: 1.2rem;
 }
 
-/* Специфические стили для iOS standalone режима */
+/* Основные фиксы для iOS standalone режима */
+.ios-standalone {
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+  overflow: hidden !important;
+}
+
+/* Улучшенные стили для canvas на iOS */
+#canvas, #overlayDiv {
+  position: fixed !important;
+  top: env(safe-area-inset-top) !important;
+  left: env(safe-area-inset-left) !important;
+  width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+  height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  border: 0 none;
+  touch-action: none;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+#canvas {
+  background: var(--bg-color);
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  will-change: transform;
+  /* Улучшенный фикс для iOS: аппаратное ускорение и предотвращение сдвигов */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  /* Предотвращаем сглаживание при масштабировании */
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Фикс для изменения ориентации на iOS */
 @media (display-mode: standalone) {
   body {
+    -webkit-overflow-scrolling: touch;
     overflow: hidden !important;
     position: fixed !important;
     width: 100% !important;
     height: 100% !important;
-    /* Фикс для iOS standalone: предотвращаем отступы */
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
   }
   
   #canvas {
-    width: 100% !important;
-    height: 100% !important;
-    /* Фикс для iOS: предотвращаем сдвиги при изменении ориентации */
-    position: fixed;
-    top: 0;
-    left: 0;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    top: env(safe-area-inset-top) !important;
+    left: env(safe-area-inset-left) !important;
+    position: fixed !important;
   }
   
-  /* Скрываем элементы интерфейса в standalone режиме */
   #ContextContainer,
   #TopRightContainer {
     display: none !important;
   }
 }
 
-/* Адаптивные стили */
-@media (max-width: 768px) {
-  #ContextContainer, #TopRightContainer {
-    top: 15px;
-  }
-  
-  #ContextContainer {
-    left: 15px;
-  }
-  
-  #TopRightContainer {
-    right: 15px;
-  }
-  
-  #statusDiv, #inputDiv {
-    width: 95%;
-    padding: 10px;
-  }
-  
-  #inputPrompt {
-    font-size: 1.2rem;
-  }
-  
-  #inputText {
-    font-size: 1rem;
-    padding: 8px 12px;
-  }
-  
-  .context-menu-item {
-    padding: 10px 12px;
-    font-size: 1rem;
-  }
-  
-  .icon-button {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-  }
-  
-  .icon-button img {
-    width: 20px;
-    height: 20px;
-  }
-
-  .modal-content {
-    padding: 20px;
-    width: 90%;
-    max-width: 90%;
-  }
-
-  .modal-title {
-    font-size: 1.3rem;
-  }
-  
-  .silent-warning-content {
-    padding: 20px;
-    font-size: 1.1rem;
-    max-width: 85%;
-  }
-}
-
-/* Предотвращение масштабирования на iOS */
+/* Дополнительные фиксы для iOS */
 @supports (-webkit-touch-callout: none) {
   body {
-    /* Предотвращает elastic scrolling */
     overscroll-behavior: none;
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    /* Фикс для iOS: предотвращаем отступы */
-    margin: 0;
-    padding: 0;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
   }
   
-  /* Фикс для изменения ориентации на iOS */
+  /* Улучшенный фикс для изменения ориентации на iOS */
   #canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    /* Принудительное аппаратное ускорение */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
+    position: fixed !important;
+    top: env(safe-area-inset-top) !important;
+    left: env(safe-area-inset-left) !important;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
   }
 }
 
-/* Дополнительные фиксы для iOS standalone режима */
-.ios-standalone #ContextContainer,
-.ios-standalone #TopRightContainer {
-  display: none !important;
-}
-
-/* Фикс для предотвращения скачков при изменении ориентации */
+/* Фикс для iOS при изменении ориентации */
 @media (orientation: portrait) {
   #canvas {
-    width: 100vw;
-    height: 100vh;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 }
 
 @media (orientation: landscape) {
   #canvas {
-    width: 100vw;
-    height: 100vh;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 }
 
-/* Фикс для полноэкранного режима на iOS */
+/* Дополнительные фиксы для iPhone X+ */
+@media screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape),
+       screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape),
+       screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape),
+       screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape),
+       screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+  #canvas {
+    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+  }
+}
+
+/* Дополнительные фиксы для полноэкранного режима на iOS */
 :-webkit-full-screen #canvas {
   width: 100% !important;
   height: 100% !important;
