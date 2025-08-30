@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Призраки Везенбергского квартала</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   
   <!-- Подключение CSS -->
@@ -62,7 +62,7 @@
         <li>Нажмите кнопку "Поделиться" внизу браузера</li>
         <li>Прокрутите меню вниз и выберите "На экран «Домой»"</li>
         <li>Нажмите "Добавить" в правом верхнем углу</li>
-        <li>Далее зайдите в приложение и начните играть в полноэкранном режиме</li>
+        <li>Далее зайдите в приложение и начните играть в полноэкранном режима</li>
       </ol>
       
       <div class="modal-buttons">
@@ -98,9 +98,73 @@
     let audioContext = null;
     let isAudioPausedByApp = false;
     
+    // Глобальные переменные для предотвращения масштабирования
+    let gameStarted = false;
+    let lastTouchEnd = 0;
+    let initialScale = 1.0;
+    
     // Основной код JavaScript остается здесь, но будет реорганизован
     // URL игры и регистрация Service Worker
     window.gameZipURL = 'game.zip';
+    
+    // Функции для предотвращения масштабирования
+    function preventZoom(event) {
+      if (gameStarted) return;
+      
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }
+
+    function preventDoubleTapZoom(event) {
+      if (gameStarted) return;
+      
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }
+
+    function preventGesture(event) {
+      if (!gameStarted) event.preventDefault();
+    }
+    
+    // Функция для сброса масштаба и положения страницы
+    function resetViewport() {
+      if (gameStarted) return;
+      
+      document.body.style.transform = 'scale(1)';
+      window.scrollTo(0, 0);
+    }
+    
+    // Функция для обработки изменения ориентации
+    function handleOrientationChange() {
+      if (gameStarted) return;
+      
+      resetViewport();
+      // Принудительный рефлоу для пересчета layout
+      document.body.style.display = 'none';
+      document.body.offsetHeight; // trigger reflow
+      document.body.style.display = '';
+    }
+    
+    // Перехватываем функцию presplashEnd из renpy-pre.js
+    const originalPresplashEnd = window.presplashEnd;
+    window.presplashEnd = function() {
+      if (originalPresplashEnd) originalPresplashEnd();
+      
+      // Игра загружена, можно снять ограничения на масштабирование
+      gameStarted = true;
+      
+      // Убираем обработчики предотвращения масштабирования
+      document.removeEventListener('touchstart', preventZoom);
+      document.removeEventListener('touchmove', preventZoom);
+      document.removeEventListener('touchend', preventDoubleTapZoom);
+      document.removeEventListener('gesturestart', preventGesture);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+    };
     
     // Регистрация Service Worker
     if ('serviceWorker' in navigator) {
@@ -579,6 +643,32 @@
       }
     }
     
+    // Настройка предотвращения масштабирования
+    function setupZoomPrevention() {
+      // Добавляем обработчики для предотвращения масштабирования
+      document.addEventListener('touchstart', preventZoom, { passive: false });
+      document.addEventListener('touchmove', preventZoom, { passive: false });
+      document.addEventListener('touchend', preventDoubleTapZoom, { passive: false });
+      document.addEventListener('gesturestart', preventGesture, { passive: false });
+      
+      // Обработчик изменения ориентации
+      window.addEventListener('orientationchange', handleOrientationChange);
+      window.addEventListener('resize', handleOrientationChange);
+      
+      // Отмечаем начало игры при клике на канвас
+      const canvas = document.getElementById('canvas');
+      if (canvas) {
+        canvas.addEventListener('click', function() {
+          gameStarted = true;
+        });
+      }
+      
+      // Через 5 секунд считаем, что игра началась (fallback)
+      setTimeout(() => {
+        gameStarted = true;
+      }, 5000);
+    }
+    
     // Инициализация приложения
     function init() {
       loadResources();
@@ -588,6 +678,9 @@
       setupIOSFix();
       setupIOSBehavior();
       autoOpenMenuOnIOS(); // Автоматическое открытие меню на iOS
+      
+      // Настройка предотвращения масштабирования
+      setupZoomPrevention();
       
       // Настройка управления аудио
       setupAudioManagement();
