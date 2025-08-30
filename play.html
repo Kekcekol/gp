@@ -28,11 +28,14 @@
 <body>
   <div class="loader"></div>
   
-  <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-  <div id="overlayDiv"></div>
+  <!-- Добавляем контейнер с фиксированным соотношением сторон -->
+  <div id="game-container">
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <div id="overlayDiv"></div>
 
-  <img id="presplash" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1' viewBox='0 0 1 1'%3E%3C/svg%3E" 
-       data-src="web-presplash.jpg" alt="Загрузка игры...">
+    <img id="presplash" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1' viewBox='0 0 1 1'%3E%3C/svg%3E" 
+         data-src="web-presplash.jpg" alt="Загрузка игры...">
+  </div>
 
   <!-- Левый верхний угол - меню -->
   <div id="ContextContainer">
@@ -89,6 +92,7 @@
     </form>
   </div>
 
+  
   <script>
     // Глобальные переменные для функций меню
     let closeContextMenu, openContextMenu;
@@ -132,11 +136,31 @@
     function handleOrientationChange() {
       if (gameStarted) return;
       
-      // Принудительный рефлоу для пересчета layout
-      const canvas = document.getElementById('canvas');
-      if (canvas) {
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
+      const container = document.getElementById('game-container');
+      const presplash = document.getElementById('presplash');
+      
+      if (!container) return;
+      
+      // Определяем ориентацию
+      const isPortrait = window.innerHeight > window.innerWidth;
+      
+      if (isPortrait) {
+        // Вертикальная ориентация - растягиваем по ширине
+        container.style.width = '100%';
+        container.style.height = 'auto';
+        container.style.top = '50%';
+        container.style.transform = 'translateY(-50%)';
+      } else {
+        // Горизонтальная ориентация - растягиваем по высоте
+        container.style.width = 'auto';
+        container.style.height = '100%';
+        container.style.left = '50%';
+        container.style.transform = 'translateX(-50%)';
+      }
+      
+      // Обновляем прелоадер
+      if (presplash) {
+        presplash.style.objectFit = 'cover';
       }
       
       // Вызываем событие resize для обновления рендера игры
