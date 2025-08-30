@@ -94,6 +94,9 @@
     // Глобальные переменные для функций меню
     let closeContextMenu, openContextMenu;
     
+    // Флаг для отслеживания пользовательского взаимодействия
+    let userInteracted = false;
+    
     // Основной код JavaScript остается здесь, но будет реорганизован
     // URL игры и регистрация Service Worker
     window.gameZipURL = 'game.zip';
@@ -128,6 +131,30 @@
     // Управление аудио
     let audioContexts = [];
     
+    // Функция возобновления аудио контекста
+    function resumeAudioContext() {
+      if (context && context.state !== "running") {
+        context.resume().then(() => {
+          console.log("AudioContext успешно возобновлен");
+        }).catch((error) => {
+          console.error("Ошибка при возобновлении AudioContext:", error);
+        });
+      }
+    }
+    
+    // Обработчик первого взаимодействия пользователя
+    function handleFirstUserInteraction() {
+      if (!userInteracted) {
+        userInteracted = true;
+        resumeAudioContext();
+        
+        // Удаляем обработчики после первого взаимодействия
+        document.removeEventListener('click', handleFirstUserInteraction);
+        document.removeEventListener('touchstart', handleFirstUserInteraction);
+        document.removeEventListener('keydown', handleFirstUserInteraction);
+      }
+    }
+    
     function pauseAllAudio() {
       // Приостанавливаем все аудио контексты
       audioContexts.forEach(ctx => {
@@ -145,12 +172,41 @@
     }
     
     function resumeAllAudio() {
-      // Возобновляем все аудио контексты
-      audioContexts.forEach(ctx => {
-        if (ctx.state === 'suspended') {
-          ctx.resume().catch(e => console.error('Error resuming audio context:', e));
-        }
-      });
+      // Возобновляем все аудио контексты только если было пользовательское взаимодействие
+      if (userInteracted) {
+        audioContexts.forEach(ctx => {
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(e => console.error('Error resuming audio context:', e));
+          }
+        });
+      }
+    }
+    
+    // Переопределяем функцию queue_depth для Ren'Py
+    function patchRenpyAudio() {
+      if (typeof renpyAudio !== 'undefined' && renpyAudio.queue_depth) {
+        // Сохраняем оригинальную функцию
+        const originalQueueDepth = renpyAudio.queue_depth;
+        
+        // Переопределяем функцию без попытки автоматического возобновления
+        renpyAudio.queue_depth = (channel) => {
+          let rv = 0;
+          let c = get_channel(channel);
+          
+          // Убрали попытку автоматического возобновления контекста
+          // Теперь контекст будет возобновляться только через обработчики жестов
+          
+          if (c.playing !== null) {
+            rv += 1;
+          }
+          
+          if (c.queued !== null) {
+            rv += 1;
+          }
+          
+          return rv;
+        };
+      }
     }
     
     // Показ сообщения о беззвучном режиме на iOS
@@ -230,7 +286,10 @@
       Promise.all([
         loadScript('renpy-pre.js'),
         loadScript('renpy.js')
-      ]).catch(error => {
+      ]).then(() => {
+        // После загрузки Ren'Py патчим аудио функции
+        setTimeout(patchRenpyAudio, 1000);
+      }).catch(error => {
         console.error('Ошибка загрузки скриптов:', error);
       });
     }
@@ -521,11 +580,16 @@
     
     // Обработчики для управления аудио
     function setupAudioHandlers() {
+      // Добавляем обработчики для первого пользовательского взаимодействия
+      document.addEventListener('click', handleFirstUserInteraction);
+      document.addEventListener('touchstart', handleFirstUserInteraction);
+      document.addEventListener('keydown', handleFirstUserInteraction);
+      
       // Обработчик изменения видимости страницы
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           pauseAllAudio();
-        } else {
+        } else if (userInteracted) {
           resumeAllAudio();
         }
       });
@@ -538,7 +602,11 @@
       // Обработчик для Android Chrome - приостанавливаем аудио при сворачивании
       if (isAndroid()) {
         document.addEventListener('pause', pauseAllAudio, false);
-        document.addEventListener('resume', resumeAllAudio, false);
+        document.addEventListener('resume', () => {
+          if (userInteracted) {
+            resumeAllAudio();
+          }
+        }, false);
       }
     }
     
