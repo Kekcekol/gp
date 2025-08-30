@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Призраки Везенбергского квартала</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   
   <!-- Подключение CSS -->
@@ -26,7 +26,6 @@
 </head>
 
 <body>
-  <!-- Остальная часть HTML остается без изменений -->
   <div class="loader"></div>
   
   <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
@@ -62,7 +61,7 @@
         <li>Нажмите кнопку "Поделиться" внизу браузера</li>
         <li>Прокрутите меню вниз и выберите "На экран «Домой»"</li>
         <li>Нажмите "Добавить" в правом верхнем углу</li>
-        <li>Далее зайдите в приложение и начните играть в полноэкранном режиме</li>
+        <li>Далее зайдите в приложение и начните играть в полноэкранном режима</li>
       </ol>
       
       <div class="modal-buttons">
@@ -129,6 +128,23 @@
       if (!gameStarted) event.preventDefault();
     }
     
+    // Функция для обработки изменения ориентации
+    function handleOrientationChange() {
+      if (gameStarted) return;
+      
+      // Принудительный рефлоу для пересчета layout
+      const canvas = document.getElementById('canvas');
+      if (canvas) {
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+      }
+      
+      // Вызываем событие resize для обновления рендера игры
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 100);
+    }
+    
     // Перехватываем функцию presplashEnd из renpy-pre.js
     const originalPresplashEnd = window.presplashEnd;
     window.presplashEnd = function() {
@@ -142,6 +158,7 @@
       document.removeEventListener('touchmove', preventZoom);
       document.removeEventListener('touchend', preventDoubleTapZoom);
       document.removeEventListener('gesturestart', preventGesture);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
     
     // Регистрация Service Worker
@@ -330,10 +347,10 @@
             return context;
           };
           
-            window.AudioContext.prototype = originalConstructor.prototype;
-            if (window.webkitAudioContext) {
-                window.webkitAudioContext = window.AudioContext;
-            }
+          window.AudioContext.prototype = originalConstructor.prototype;
+          if (window.webkitAudioContext) {
+            window.webkitAudioContext = window.AudioContext;
+          }
         }
       }
     }
@@ -628,6 +645,9 @@
       document.addEventListener('touchmove', preventZoom, { passive: false });
       document.addEventListener('touchend', preventDoubleTapZoom, { passive: false });
       document.addEventListener('gesturestart', preventGesture, { passive: false });
+      
+      // Обработчик изменения ориентации
+      window.addEventListener('orientationchange', handleOrientationChange);
       
       // Отмечаем начало игры при клике на канвас
       const canvas = document.getElementById('canvas');
