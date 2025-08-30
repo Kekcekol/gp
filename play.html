@@ -74,7 +74,7 @@
   <!-- Сообщение о беззвучном режиме для iOS -->
   <div id="silentModeWarning" class="silent-warning hidden">
     <div class="silent-warning-content">
-      <p>Во время беззвучного режима музыки не слышно</p>
+      <p>С бесшумным режимом вы не услышите музыки</p>
     </div>
   </div>
 
@@ -531,18 +531,35 @@
         e.target.dispatchEvent(clickEvent);
       }, { passive: true });
       
-      // Фикс для изменения ориентации - перерисовываем canvas
+      // Обработчик изменения ориентации - улучшенная версия
+      let orientationChangeTimeout;
       function handleOrientationChange() {
+        clearTimeout(orientationChangeTimeout);
+        
+        // Сначала принудительно устанавливаем правильные размеры
         setTimeout(() => {
-          const canvas = document.getElementById('canvas');
           if (canvas) {
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
-            // Если игра уже запущена, вызываем функцию перерисовки
-            if (typeof Module !== 'undefined' && Module.onResize) {
-              Module.onResize();
-            }
+          }
+        }, 50);
+        
+        // Затем вызываем ресайз с задержкой
+        orientationChangeTimeout = setTimeout(() => {
+          if (typeof Module !== 'undefined' && Module.onResize) {
+            Module.onResize();
+          }
+          
+          // Принудительно восстанавливаем фокус и состояние
+          if (canvas) {
+            canvas.focus();
+          }
+          
+          // Пытаемся перерисовать сцену
+          if (typeof Module !== 'undefined' && Module._repaint) {
+            Module._repaint();
           }
         }, 300);
       }
@@ -552,6 +569,21 @@
       
       // Обработчик изменения размера окна
       window.addEventListener('resize', handleOrientationChange);
+      
+      // Обработчики для восстановления после паузы
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          // При возвращении на страницу восстанавливаем состояние
+          setTimeout(handleOrientationChange, 100);
+        }
+      });
+      
+      // Обработчик для страницы показа (после восстановления из фона)
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+          setTimeout(handleOrientationChange, 100);
+        }
+      });
       
       // Предотвращаем масштабирование жестами
       document.addEventListener('touchstart', function(e) {

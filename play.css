@@ -28,6 +28,9 @@ html, body {
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
   overflow: hidden;
+  /* Фикс для iOS: предотвращаем прокрутку и масштабирование */
+  position: fixed;
+  width: 100%;
 }
 
 #canvas, #overlayDiv {
@@ -46,6 +49,9 @@ html, body {
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
   will-change: transform;
+  /* Фикс для iOS: предотвращаем сдвиги при изменении ориентации */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .visible {
@@ -381,11 +387,24 @@ html, body {
     position: fixed !important;
     width: 100% !important;
     height: 100% !important;
+    /* Фикс для iOS standalone: предотвращаем отступы */
+    margin: 0;
+    padding: 0;
   }
   
   #canvas {
     width: 100% !important;
     height: 100% !important;
+    /* Фикс для iOS: предотвращаем сдвиги при изменении ориентации */
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  /* Скрываем элементы интерфейса в standalone режиме */
+  #ContextContainer,
+  #TopRightContainer {
+    display: none !important;
   }
 }
 
@@ -459,5 +478,62 @@ html, body {
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Фикс для iOS: предотвращаем отступы */
+    margin: 0;
+    padding: 0;
   }
+  
+  /* Фикс для изменения ориентации на iOS */
+  #canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* Принудительное аппаратное ускорение */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+}
+
+/* Дополнительные фиксы для iOS standalone режима */
+.ios-standalone #ContextContainer,
+.ios-standalone #TopRightContainer {
+  display: none !important;
+}
+
+/* Фикс для предотвращения скачков при изменении ориентации */
+@media (orientation: portrait) {
+  #canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+@media (orientation: landscape) {
+  #canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+/* Фикс для полноэкранного режима на iOS */
+:-webkit-full-screen #canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:-moz-full-screen #canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:-ms-fullscreen #canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+:fullscreen #canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
