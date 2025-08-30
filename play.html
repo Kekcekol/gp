@@ -71,6 +71,13 @@
     </div>
   </div>
 
+  <!-- Сообщение о беззвучном режиме для iOS -->
+  <div id="silentModeWarning" class="silent-warning hidden">
+    <div class="silent-warning-content">
+      <p>Во время беззвучного режима музыки не слышно</p>
+    </div>
+  </div>
+
   <div id="statusDiv" class="hidden">
     <div id="statusTextDiv"></div>
     <progress id="statusProgress" value="0" max="100"></progress>
@@ -144,6 +151,56 @@
           ctx.resume().catch(e => console.error('Error resuming audio context:', e));
         }
       });
+    }
+    
+    // Показ сообщения о беззвучном режиме на iOS
+    function showSilentModeWarning() {
+      const warning = document.getElementById('silentModeWarning');
+      if (!warning) return;
+      
+      // Проверяем, не показывали ли уже сообщение в этой сессии
+      if (sessionStorage.getItem('silentWarningShown')) return;
+      
+      warning.classList.remove('hidden');
+      
+      // Скрываем сообщение через 5 секунд
+      const hideTimeout = setTimeout(() => {
+        hideSilentModeWarning();
+      }, 5000);
+      
+      // Скрываем при клике в любом месте
+      warning.addEventListener('click', function hideOnClick() {
+        clearTimeout(hideTimeout);
+        hideSilentModeWarning();
+        warning.removeEventListener('click', hideOnClick);
+      });
+      
+      // Также скрываем, если пользователь открыл инструкцию
+      const installMenuItem = document.getElementById('installMenuItem');
+      const installModal = document.getElementById('installModal');
+      if (installMenuItem && installModal) {
+        installMenuItem.addEventListener('click', function hideOnInstruction() {
+          clearTimeout(hideTimeout);
+          hideSilentModeWarning();
+          installMenuItem.removeEventListener('click', hideOnInstruction);
+        });
+        
+        installModal.addEventListener('click', function(e) {
+          if (e.target === installModal || e.target.id === 'closeInstallModal') {
+            clearTimeout(hideTimeout);
+            hideSilentModeWarning();
+          }
+        });
+      }
+      
+      sessionStorage.setItem('silentWarningShown', 'true');
+    }
+    
+    function hideSilentModeWarning() {
+      const warning = document.getElementById('silentModeWarning');
+      if (warning) {
+        warning.classList.add('hidden');
+      }
     }
     
     // Основные функции приложения
@@ -415,16 +472,27 @@
         e.target.dispatchEvent(clickEvent);
       }, { passive: true });
       
-      // Фикс для изменения ориентации и масштабирования
+      // Фикс для изменения ориентации - перерисовываем canvas
       function handleOrientationChange() {
-        // Перезагружаем страницу при изменении ориентации
         setTimeout(() => {
-          window.location.reload();
+          const canvas = document.getElementById('canvas');
+          if (canvas) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Если игра уже запущена, вызываем функцию перерисовки
+            if (typeof Module !== 'undefined' && Module.onResize) {
+              Module.onResize();
+            }
+          }
         }, 300);
       }
       
       // Обработчик изменения ориентации
       window.addEventListener('orientationchange', handleOrientationChange);
+      
+      // Обработчик изменения размера окна
+      window.addEventListener('resize', handleOrientationChange);
       
       // Предотвращаем масштабирование жестами
       document.addEventListener('touchstart', function(e) {
@@ -484,6 +552,11 @@
       setupIOSBehavior();
       setupAudioHandlers();
       autoOpenMenuOnIOS(); // Автоматическое открытие меню на iOS
+      
+      // Показываем предупреждение о беззвучном режиме на iOS
+      if (isIOS()) {
+        showSilentModeWarning();
+      }
       
       // Обработчики событий
       window.addEventListener('load', hideLoader);

@@ -1,6 +1,5 @@
 {
-  "name": "The Ghosts of the Wesenberg Quarter",
-  "short_name": "GhostsWesenberg",
+  "name": "Призраки Везенбергского квартала",
   "icons": [
     {"src": "icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any"},
     {"src": "icons/icon-72x72-maskable.png", "sizes": "72x72", "type": "image/png", "purpose": "maskable"},
@@ -24,6 +23,7 @@
   "display": "standalone",
   "background_color": "black",
   "theme_color": "black",
+  "launch_handler": {"route_to": "existing-client", "navigate_existing_client": "always"},
   "orientation": "landscape-primary",
-  "categories": ["games", "entertainment"]
+  "display_override": ["fullscreen", "minimal-ui"]
 }
