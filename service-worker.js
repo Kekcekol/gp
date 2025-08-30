@@ -7,6 +7,18 @@ self.addEventListener('install', function (e) {
 });
 
 self.addEventListener('activate', function (e) {
+    e.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.map(function(cache) {
+                    if (cache !== cacheName) {
+                        console.log('Deleting old cache:', cache);
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
+    );
     return self.clients.claim();
 });
 
@@ -77,6 +89,11 @@ async function fetchAndCache(request) {
 
 /* Serve cached content when offline */
 self.addEventListener('fetch', function (e) {
+    // Исключаем game.zip из кэширования service worker'ом
+    if (e.request.url.includes('game.zip')) {
+        return;
+    }
+    
     e.respondWith(fetchAndCache(e.request));
 });
 

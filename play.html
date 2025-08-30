@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Призраки Везенбергского квартала</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   
   <!-- Подключение CSS -->
@@ -111,6 +111,39 @@
     // Функция проверки iOS устройства
     function isIOS() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+    
+    // Функция проверки Android устройства
+    function isAndroid() {
+      return /Android/.test(navigator.userAgent);
+    }
+    
+    // Управление аудио
+    let audioContexts = [];
+    
+    function pauseAllAudio() {
+      // Приостанавливаем все аудио контексты
+      audioContexts.forEach(ctx => {
+        if (ctx.state === 'running') {
+          ctx.suspend().catch(e => console.error('Error suspending audio context:', e));
+        }
+      });
+      
+      // Также приостанавливаем HTML5 аудио элементы
+      document.querySelectorAll('audio, video').forEach(media => {
+        if (!media.paused) {
+          media.pause();
+        }
+      });
+    }
+    
+    function resumeAllAudio() {
+      // Возобновляем все аудио контексты
+      audioContexts.forEach(ctx => {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(e => console.error('Error resuming audio context:', e));
+        }
+      });
     }
     
     // Основные функции приложения
@@ -381,6 +414,28 @@
         });
         e.target.dispatchEvent(clickEvent);
       }, { passive: true });
+      
+      // Фикс для изменения ориентации и масштабирования
+      function handleOrientationChange() {
+        // Перезагружаем страницу при изменении ориентации
+        setTimeout(() => {
+          window.location.reload();
+        }, 300);
+      }
+      
+      // Обработчик изменения ориентации
+      window.addEventListener('orientationchange', handleOrientationChange);
+      
+      // Предотвращаем масштабирование жестами
+      document.addEventListener('touchstart', function(e) {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+      
+      document.addEventListener('gesturestart', function(e) {
+        e.preventDefault();
+      });
     }
     
     // Автоматическое открытие меню на iOS при загрузке
@@ -396,6 +451,29 @@
       }
     }
     
+    // Обработчики для управления аудио
+    function setupAudioHandlers() {
+      // Обработчик изменения видимости страницы
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          pauseAllAudio();
+        } else {
+          resumeAllAudio();
+        }
+      });
+      
+      // Обработчик перед закрытием страницы
+      window.addEventListener('beforeunload', () => {
+        pauseAllAudio();
+      });
+      
+      // Обработчик для Android Chrome - приостанавливаем аудио при сворачивании
+      if (isAndroid()) {
+        document.addEventListener('pause', pauseAllAudio, false);
+        document.addEventListener('resume', resumeAllAudio, false);
+      }
+    }
+    
     // Инициализация приложения
     function init() {
       loadResources();
@@ -404,6 +482,7 @@
       setupInstallPrompt();
       setupIOSFix();
       setupIOSBehavior();
+      setupAudioHandlers();
       autoOpenMenuOnIOS(); // Автоматическое открытие меню на iOS
       
       // Обработчики событий
