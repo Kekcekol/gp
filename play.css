@@ -19,7 +19,7 @@ html, body {
   height: 100%;
   position: fixed;
   overflow: hidden;
-  background: #000; /* Меняем на черный для черных полос */
+  background: #000;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overscroll-behavior: none;
   touch-action: manipulation;
@@ -30,19 +30,29 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Контейнер с фиксированным соотношением сторон 16:9 */
+/* Контейнер игры - занимает весь экран */
 #game-container {
   position: absolute;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16/9;
-  max-width: 100%;
-  max-height: 100%;
-  top: 50%;
+  top: 0;
   left: 0;
-  transform: translateY(-50%);
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
   background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Контент игры с фиксированным соотношением сторон */
+#game-content {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  overflow: hidden;
+  background: #000;
+  transition: var(--transition);
 }
 
 #canvas, #overlayDiv {
@@ -61,27 +71,6 @@ html, body {
   -ms-interpolation-mode: nearest-neighbor;
   will-change: transform;
   touch-action: none;
-}
-
-/* Адаптация для горизонтальной ориентации */
-@media (orientation: landscape) {
-  #game-container {
-    width: auto;
-    height: 100%;
-    left: 50%;
-    top: 0;
-    transform: translateX(-50%);
-  }
-}
-
-/* Для устройств iOS с вырезом */
-@supports (padding: max(0px)) {
-  #game-container {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
 }
 
 .visible {
@@ -455,4 +444,18 @@ html, body {
       top: max(70px, calc(env(safe-area-inset-top) + 50px));
     }
   }
+}
+
+/* Специальные стили для standalone режима на iOS */
+.standalone-mode #game-container {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.standalone-mode.landscape #game-content {
+  width: auto !important;
+  height: 100% !important;
+  padding-bottom: 0 !important;
 }
