@@ -28,7 +28,7 @@
     <div id="game-content">
       <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
       <div id="overlayDiv"></div>
-      <img id="presplash" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1' viewBox='0 0 1 1'%3E%3C/svg%3E" 
+      <img id="presplash" src="image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1' viewBox='0 0 1 1'%3E%3C/svg%3E" 
            data-src="web-presplash.jpg" alt="Загрузка игры...">
     </div>
   </div>
@@ -136,14 +136,29 @@
         const canvas = document.getElementById('canvas');
         if (!container || !content) return;
 
-        // Просто обновляем размеры canvas
+        // Получаем реальные размеры viewport
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+
+        console.log(`Viewport: ${vw}x${vh}`);
+
+        // Принудительно устанавливаем размеры контейнера
+        container.style.width = `${vw}px`;
+        container.style.height = `${vh}px`;
+
+        // Убеждаемся, что game-content использует доступное пространство
+        content.style.width = '100%';
+        content.style.maxHeight = '100%'; // Используем maxHeight
+        content.style.height = 'auto'; // Позволяем высоте определяться aspect-ratio
+
+        // Принудительно обновляем размеры канваса
         if (canvas) {
             canvas.style.width = '100%';
             canvas.style.height = '100%';
         }
 
         // Вызываем событие resize для обновления рендера игры
-        // Используем небольшую задержку, чтобы размеры точно применились
+        // Используем небольшую задержку, чтобы стили точно применились
         setTimeout(() => {
             console.log("Dispatching resize event");
             window.dispatchEvent(new Event('resize'));
@@ -159,18 +174,21 @@
 
       // Проверяем, есть ли отступы в standalone режиме
       if (checkStandaloneMode()) {
-        console.log("Applying safe area padding");
+        console.log("Applying safe area padding for standalone");
         // Добавляем отступы для безопасных зон
         container.style.paddingTop = 'env(safe-area-inset-top, 0px)';
         container.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
         container.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
         container.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+        container.style.boxSizing = 'border-box'; // Убедиться, что padding включен в размер
       } else {
+          console.log("Resetting safe area padding for browser tab");
           // Сбрасываем padding, если не standalone
           container.style.paddingTop = '';
           container.style.paddingBottom = '';
           container.style.paddingLeft = '';
           container.style.paddingRight = '';
+          // container.style.boxSizing = ''; // Можно оставить box-sizing: border-box из CSS
       }
     }
 
@@ -637,14 +655,15 @@
       setupIOSFix();
       setupIOSBehavior(); // Вызываем раньше
       autoOpenMenuOnIOS(); // Автоматическое открытие меню на iOS
+
       // Настройка предотвращения масштабирования
       setupZoomPrevention();
-      
+
       // Проверяем standalone режим
       checkStandaloneMode();
       // Проверяем безопасные зоны
       checkSafeAreas(); // Вызываем один раз при инициализации
-      
+
       // Вызываем первоначальную настройку ориентации/размера
       handleOrientationChange();
 
@@ -653,18 +672,26 @@
        window.addEventListener('orientationchange', () => {
            console.log("Orientation changed");
            checkSafeAreas(); // Перепроверяем безопасные зоны при повороте
-           handleOrientationChange(); // Обрабатываем изменение ориентации
+           // Небольшая задержка перед обработкой изменения ориентации
+           setTimeout(handleOrientationChange, 100);
        });
-      
+
       // Настройка управления аудио
       setupAudioManagement();
       preventAudioDuplication();
+
       // Показываем предупреждение о беззвучном режиме на iOS
       if (isIOS()) {
         showSilentModeWarning();
       }
+
       // Обработчики событий
-      window.addEventListener('load', hideLoader);
+      window.addEventListener('load', () => {
+          console.log("Window loaded");
+          hideLoader();
+          // Принудительно вызываем handleOrientationChange после полной загрузки
+          setTimeout(handleOrientationChange, 100);
+      });
       window.addEventListener('error', hideLoader);
     }
     // Запуск приложения после загрузки DOM
