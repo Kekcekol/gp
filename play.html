@@ -128,7 +128,7 @@
       };
     }
 
-    // УПРОЩЕННАЯ функция для обработки изменения ориентации и размера
+    // Функция для обработки изменения ориентации и размера
     function handleOrientationChange() {
         console.log("handleOrientationChange called");
         const container = document.getElementById('game-container');
@@ -137,59 +137,106 @@
         if (!container || !content) return;
 
         // Получаем реальные размеры viewport
-        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+        const dims = getScreenDimensions();
+        const isPortrait = dims.height > dims.width;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-        console.log(`Viewport: ${vw}x${vh}`);
+        console.log(`Viewport: ${dims.width}x${dims.height}, Portrait: ${isPortrait}, Standalone: ${isStandalone}, iOS: ${isIOS}`);
 
-        // Принудительно устанавливаем размеры контейнера
-        container.style.width = `${vw}px`;
-        container.style.height = `${vh}px`;
+        // Сброс стилей, которые могли быть применены ранее
+        container.style.width = '';
+        container.style.height = '';
+        container.style.top = '';
+        container.style.left = '';
+        container.style.transform = '';
+        container.style.margin = '0 auto'; // Центрирование по умолчанию для браузера
+        container.style.position = ''; // Сброс позиционирования
+        container.style.paddingTop = '';
+        container.style.paddingBottom = '';
+        container.style.paddingLeft = '';
+        container.style.paddingRight = '';
+        container.style.boxSizing = '';
 
-        // Убеждаемся, что game-content использует доступное пространство
         content.style.width = '100%';
-        content.style.maxHeight = '100%'; // Используем maxHeight
-        content.style.height = 'auto'; // Позволяем высоте определяться aspect-ratio
+        content.style.paddingBottom = '56.25%'; // 16:9 aspect ratio
 
-        // Принудительно обновляем размеры канваса
         if (canvas) {
             canvas.style.width = '100%';
             canvas.style.height = '100%';
         }
 
+        if (isStandalone) {
+            console.log("Standalone mode detected");
+            // В standalone режиме используем 100vw/100vh и padding для безопасных зон
+            container.style.width = '100vw';
+            container.style.height = '100vh';
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+
+            // Применяем padding для безопасных зон
+            container.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+            container.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+            container.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+            container.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+            container.style.boxSizing = 'border-box';
+
+        } else {
+            console.log("Browser tab mode detected");
+            // В браузерной вкладке пытаемся точно вписать игру в viewport
+            const ASPECT_RATIO = 16 / 9;
+            let gameWidth, gameHeight;
+
+            // Рассчитываем размеры, предполагая, что ширина ограничивающая
+            const widthBasedHeight = dims.width / ASPECT_RATIO;
+            // Рассчитываем размеры, предполагая, что высота ограничивающая
+            const heightBasedWidth = dims.height * ASPECT_RATIO;
+
+            if (widthBasedHeight <= dims.height) {
+                // Ширина определяющая
+                gameWidth = dims.width;
+                gameHeight = widthBasedHeight;
+                console.log("Width is limiting factor in browser");
+            } else {
+                // Высота определяющая
+                gameWidth = heightBasedWidth;
+                gameHeight = dims.height;
+                console.log("Height is limiting factor in browser");
+            }
+
+            console.log(`Calculated Game Size for browser: ${gameWidth}x${gameHeight}`);
+
+            // Устанавливаем размеры контейнера
+            container.style.width = `${gameWidth}px`;
+            container.style.height = `${gameHeight}px`;
+            container.style.position = 'fixed';
+            container.style.top = '50%';
+            container.style.left = '50%';
+            container.style.transform = 'translate(-50%, -50%)';
+            container.style.margin = '0'; // Отменяем margin для центрирования через transform
+
+            // Для iOS в браузере добавляем минимальный padding как фоллбэк
+            if (isIOS) {
+                 console.log("Applying fallback padding for iOS browser");
+                 container.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+                 container.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+                 container.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+                 container.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+                 container.style.boxSizing = 'border-box';
+            }
+        }
+
         // Вызываем событие resize для обновления рендера игры
-        // Используем небольшую задержку, чтобы стили точно применились
         setTimeout(() => {
             console.log("Dispatching resize event");
             window.dispatchEvent(new Event('resize'));
-        }, 50); // Уменьшена задержка
+        }, 100); // Небольшая задержка для применения стилей
     }
 
-    // УПРОЩЕННАЯ функция для принудительной проверки безопасных зон
-    function checkSafeAreas() {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (!isIOS) return;
-      const container = document.getElementById('game-container');
-      if (!container) return;
 
-      // Проверяем, есть ли отступы в standalone режиме
-      if (checkStandaloneMode()) {
-        console.log("Applying safe area padding for standalone");
-        // Добавляем отступы для безопасных зон
-        container.style.paddingTop = 'env(safe-area-inset-top, 0px)';
-        container.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
-        container.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
-        container.style.paddingRight = 'env(safe-area-inset-right, 0px)';
-        container.style.boxSizing = 'border-box'; // Убедиться, что padding включен в размер
-      } else {
-          console.log("Resetting safe area padding for browser tab");
-          // Сбрасываем padding, если не standalone
-          container.style.paddingTop = '';
-          container.style.paddingBottom = '';
-          container.style.paddingLeft = '';
-          container.style.paddingRight = '';
-          // container.style.boxSizing = ''; // Можно оставить box-sizing: border-box из CSS
-      }
+    // Функция для принудительной проверки безопасных зон (вызывается из handleOrientationChange)
+    function checkSafeAreas() {
+      // Логика перенесена в handleOrientationChange
     }
 
     // Перехватываем функцию presplashEnd из renpy-pre.js
@@ -203,7 +250,7 @@
       document.removeEventListener('touchmove', preventZoom);
       document.removeEventListener('touchend', preventDoubleTapZoom);
       document.removeEventListener('gesturestart', preventGesture);
-      // window.removeEventListener('orientationchange', handleOrientationChange); // Оставляем, если нужно обновлять при повороте
+      // window.removeEventListener('orientationchange', handleOrientationChange); // Оставляем для standalone
     };
 
     // Регистрация Service Worker
@@ -570,7 +617,6 @@
         }
       });
     }
-    // УПРОЩЕННАЯ функция настройки поведения для iOS
     function setupIOSBehavior() {
       const isIOSDevice = isIOS();
       const isStandalone = isRunningInStandaloneMode();
@@ -662,19 +708,24 @@
       // Проверяем standalone режим
       checkStandaloneMode();
       // Проверяем безопасные зоны
-      checkSafeAreas(); // Вызываем один раз при инициализации
+      // checkSafeAreas(); // Вызывается внутри handleOrientationChange
 
       // Вызываем первоначальную настройку ориентации/размера
       handleOrientationChange();
 
       // Обработчики событий изменения размера и ориентации
-       window.addEventListener('resize', handleOrientationChange);
-       window.addEventListener('orientationchange', () => {
-           console.log("Orientation changed");
-           checkSafeAreas(); // Перепроверяем безопасные зоны при повороте
-           // Небольшая задержка перед обработкой изменения ориентации
-           setTimeout(handleOrientationChange, 100);
-       });
+       if (isStandalone) {
+           // В standalone режиме слушаем resize и orientationchange
+           window.addEventListener('resize', handleOrientationChange);
+           window.addEventListener('orientationchange', () => {
+               console.log("Orientation changed in standalone");
+               // checkSafeAreas(); // Логика внутри handleOrientationChange
+               handleOrientationChange();
+           });
+       } else {
+           // В браузере слушаем resize (который включает orientationchange)
+           window.addEventListener('resize', handleOrientationChange);
+       }
 
       // Настройка управления аудио
       setupAudioManagement();

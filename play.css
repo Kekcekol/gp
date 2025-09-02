@@ -28,43 +28,36 @@ html, body {
   -webkit-text-size-adjust: none;
   text-size-adjust: none;
   -webkit-tap-highlight-color: transparent;
-  /* Добавляем height: 100vh к body */
-  height: 100dvh; /* Используем dvh для лучшей поддержки на мобильных */
-  height: 100vh; /* fallback для старых браузеров */
+  /* Убираем фиксированную высоту у body, используем min-height */
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh; /* для динамического viewport height */
 }
 
-/* Контейнер игры - занимает весь экран и учитывает безопасные зоны */
+/* Контейнер игры - будет позиционироваться и масштабироваться JS */
 #game-container {
-  /* position: absolute; */ /* Убираем absolute */
-  /* top: 0; left: 0; */ /* Убираем top/left */
-  width: 100vw; /* Ширина окна просмотра */
-  /* height: 100vh; */ /* Высота окна просмотра */
-  height: 100dvh; /* Используем dvh */
-  height: 100vh; /* fallback */
+  /* width: 100vw; */ /* Ширина будет устанавливаться JS */
+  /* height: 100vh; */ /* Высота будет устанавливаться JS */
   overflow: hidden;
   background: #000;
   display: flex;
   justify-content: center;
   align-items: center;
   box-sizing: border-box; /* Очень важно */
-  /* Паддинги для безопасных зон будут применяться через JS */
-  /* Добавляем min/max для ограничения */
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Начальные размеры и позиционирование из CSS, но будут переопределены JS */
+  width: 100vw;
+  height: 100vh;
+  margin: 0 auto;
 }
 
 /* Контент игры с фиксированным соотношением сторон */
 #game-content {
   position: relative; /* Оставляем relative */
   width: 100%; /* Ширина 100% от родителя (#game-container) */
-  /* height: 100%; */ /* Убираем height: 100% */
-  aspect-ratio: 16 / 9; /* Используем aspect-ratio */
-  max-height: 100%; /* Ограничиваем высоту, чтобы не выходила за пределы контейнера */
-  max-width: 100%; /* Ограничиваем ширину на всякий случай */
+  height: 0; /* Высота 0, padding-bottom определяет высоту */
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
   overflow: hidden;
   background: #000;
   transition: var(--transition);
-  /* Убираем padding-bottom, так как используем aspect-ratio */
 }
 
 #canvas, #overlayDiv {
